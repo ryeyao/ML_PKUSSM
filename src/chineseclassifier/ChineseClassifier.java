@@ -6,10 +6,13 @@ package chineseclassifier;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Formatter;
 import java.util.HashMap;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -22,6 +25,13 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+
+import weka.classifiers.Classifier;
+import weka.classifiers.Evaluation;
+import weka.classifiers.bayes.NaiveBayes;
+import weka.classifiers.functions.MultilayerPerceptron;
+import weka.core.Attribute;
+import weka.core.FastVector;
 
 //import org.xml.sax.SAXException;
 
@@ -64,6 +74,7 @@ public class ChineseClassifier {
 			String lang = currCorpus.getAttribute("lang");
 			corp.setLang(lang);
 			mapping.parse(this.specfile);
+			mapping.parseKeyFile("pos\\ChineseLS.test.key");
 			// Parse lexelts
 			// System.out.println("Parse corpuses ran " + i + " times.");
 			NodeList lexeltNodeList = currCorpus.getElementsByTagName("lexelt");
@@ -147,8 +158,8 @@ public class ChineseClassifier {
 			buf.insert(0, ",");
 			buf.insert(0, "0");
 		}
-//		System.out
-//				.println("Extended [" + str + "] to [" + buf.toString() + "]");
+		// System.out
+		// .println("Extended [" + str + "] to [" + buf.toString() + "]");
 		return buf.toString();
 	}
 
@@ -157,6 +168,7 @@ public class ChineseClassifier {
 		ArrayList<String> dataSet = new ArrayList<String>();
 		HashMap<String, String> kvmap = mapping.getKVMap();
 		HashMap<String, String> senseidmap = mapping.getSenseidMap();
+		HashMap<String, String> keyfilemap = mapping.getKeyFileMap();
 		int len = 6;
 		int max_len = 12;
 		for (Corpus corpus : corpuses) {
@@ -170,22 +182,14 @@ public class ChineseClassifier {
 				BufferedWriter bw = new BufferedWriter(new FileWriter(path
 						+ keyWord + ".arff"));
 				// Write header
-				bw.write("@relation " + keyWord.hashCode() + "_predicted");
+				bw.write("@relation " + keyWord.hashCode());
 				bw.newLine();
 				bw.newLine();
 				for (int i = 1; i <= 4; i++) {
 					bw.write("@attribute " + i + " {");
 					int count = 0;
 					for (String s : mapping.getKVMap().keySet()) {
-//						String bin_str = mapping.getKVMap().get(s);
-//						String bin_str = mapping.getValue(s);
-//						bw.write(bin_str);
 						bw.write(s);
-//						bw.write("\""
-//								+ extendTo(bin_str, len)
-//								+ "\"");
-//						System.out.println("bin_str0: "
-//								+ extendTo(bin_str, len));
 						if (count != mapping.getKVMap().size() - 1) {
 							bw.write(",");
 						} else {
@@ -203,10 +207,15 @@ public class ChineseClassifier {
 				for (int i = 0; i < instanceList.size(); i++) {
 					Instance instance = instanceList.get(i);
 					Answer ans = instanceList.get(i).getAnswer();
-//					match.put(ans.getInstance(), ans.getSenseid());
-					match.put(ans.getInstance(), mapping.getValue(ans.getSenseid()));
-					if (!fifthline.contains(mapping.getValue(ans.getSenseid()))) {
-						fifthline += mapping.getValue(ans.getSenseid());
+					String senseID = ans.getSenseid();
+					String value;
+					if (senseID == "") {
+						value = "";
+					} else {
+						value = mapping.getValue(senseID);
+					}
+					if (!fifthline.contains(value)) {
+						fifthline += value;
 						if (i < instanceList.size() - 1) {
 							if (!fifthline.endsWith(",")) {
 								fifthline += ",";
@@ -245,36 +254,24 @@ public class ChineseClassifier {
 											Integer.parseInt(wordTag.getID()) + 2);
 
 							// extend binary str
-
 							int c = 0;
 							for (WordTag vw : vec_w) {
-//								String str_bin = mapping.getValue(vw.getPOS());
 								String str_bin = vw.getPOS();
 								int str_len = (str_bin.length() + 1) / 2;
 								pos_str[c] = str_bin;
 								if (str_len < len) {
-//									pos_str[c] = extendTo(str_bin, len);
 									pos_str[c] = str_bin;
-									// System.out.println("pos_str[" + c +
-									// "] : " + pos_str[c]);
 								}
 								c++;
 							}
-							// dataStr += vw0.getPOS() + "," + vw1.getPOS() +
-							// ","
-							// + vw2.getPOS() + "," + vw3.getPOS() + ",";
-
-//							dataStr += "\"" + pos_str[0] + "\"" + "," + "\"" + pos_str[1] + "\"" + ","
-//									+ "\"" + pos_str[2] + "\"" + "," + "\"" + pos_str[3] + "\"" + ",";
-							dataStr += pos_str[0] + "," + pos_str[1] + "," + pos_str[2] + "," + pos_str[3] + ",";
+							dataStr += pos_str[0] + "," + pos_str[1] + ","
+									+ pos_str[2] + "," + pos_str[3] + ",";
 							if (ans.getSenseid() != "") {
-								// String str_bin =
-								// mapping.getValue(ans.getSenseid());
 								dataStr += mapping.getValue(ans.getSenseid());
 							} else {
-								dataStr += "?";
+								// dataStr += "?";
+								dataStr += keyfilemap.get(ans.getInstance());
 							}
-							// System.out.println("DataStr: " + dataStr);
 							dataLine.add(dataStr);
 						}
 					}
@@ -300,68 +297,335 @@ public class ChineseClassifier {
 		}
 	}
 
-	// public ArrayList<int[]> geterateTestSet () {
-	// HashMap<String, HashMap<String,String>> results = new HashMap<String,
-	// HashMap<String, String>>();
-	// ArrayList<int[]> testSet = new ArrayList<int[]>();
-	//
-	// for (Corpus corpus: corpuses) {
-	// ArrayList<Lexelt> lexeltList = corpus.getLexelts();
-	//
-	// for (Lexelt lexelt: lexeltList) {
-	// String keyWord = lexelt.getItem();
-	// ArrayList<Instance> instanceList = lexelt.getInstances();
-	// HashMap<String, String> match = new HashMap<String, String>();
-	//
-	// for (Instance instance: instanceList) {
-	// Answer ans = instance.getAnswer();
-	// match.put(ans.getInstance(), ans.getSenseid());
-	//
-	// for (WordTag wordTag: instance.getPOSTTagging().getPOSTagging().keySet())
-	// {
-	// // int[] vec = {0,0,0};
-	// int len = (int)(Math.log(mapping.getSenseidMap().size()) / Math.log(2));
-	// int[] vec = new int[len];
-	// if (Integer.parseInt(wordTag.getID()) > 2) {
-	// WordTag vw0 =
-	// instance.getPOSTTagging().getWordTagByID(Integer.parseInt(wordTag.getID())
-	// - 2);
-	// int pos = mapping.getValue(vw0.getPOS());
-	// vec[0] = pos;
-	// }
-	// if (Integer.parseInt(wordTag.getID()) > 1) {
-	// WordTag vw1 =
-	// instance.getPOSTTagging().getWordTagByID(Integer.parseInt(wordTag.getID())
-	// - 1);
-	// int pos = mapping.getValue(vw1.getPOS());
-	// vec[1] = pos;
-	// }
-	// if (Integer.parseInt(wordTag.getID()) + 1 <
-	// instance.getPOSTTagging().getPOSTagging().size()) {
-	// WordTag vw2 =
-	// instance.getPOSTTagging().getWordTagByID(Integer.parseInt(wordTag.getID())
-	// + 1);
-	// int pos = mapping.getValue(vw2.getPOS());
-	// vec[2] = pos;
-	// }
-	// if (Integer.parseInt(wordTag.getID()) + 2 <
-	// instance.getPOSTTagging().getPOSTagging().size()) {
-	// WordTag vw3 =
-	// instance.getPOSTTagging().getWordTagByID(Integer.parseInt(wordTag.getID())
-	// + 2);
-	// int pos = mapping.getValue(vw3.getPOS());
-	// vec[3] = pos;
-	// }
-	// // vec[2] = mapping.getValue(ans.getSenseid());
-	// vec[4] = mapping.getValue(ans.getSenseid());
-	// testSet.add(vec);
-	// }
-	// }
-	// }
-	//
-	// }
-	// return testSet;
-	// }
+	public static String test(weka.core.Instances testingSet,
+			Classifier cModel_neorup) throws Exception {
+		System.out.println("Testing started...");
+		long start = System.currentTimeMillis();
+		// Test the model
+		Evaluation eTest = new Evaluation(testingSet);
+		eTest.evaluateModel(cModel_neorup, testingSet);
+
+		// Print the result ид la Weka explorer:
+
+		String strSummary = eTest.toSummaryString();
+		// String strSummary = eTest.toMatrixString();
+		long end = System.currentTimeMillis();
+		System.out.println("Testing done. " + (end - start) + "ms");
+//		return strSummary.split("\\s+")[4];
+		return strSummary.split("\n")[1].split("\\s+")[4];
+	}
+
+	public static Classifier train(weka.core.Instances isTrainingSet,
+			String[] option) throws Exception {
+		System.out.println("Training started...");
+		long start = System.currentTimeMillis();
+		// Classifier cModel = (Classifier)new NaiveBayes();
+		Classifier cModel_neorup = new MultilayerPerceptron();
+		cModel_neorup.setOptions(option);
+		// for (String o:cModel_neorup.getOptions()) {
+		// System.out.println("Option: " + o);
+		// }
+		cModel_neorup.buildClassifier(isTrainingSet);
+		long end = System.currentTimeMillis();
+		System.out.println("Training done. " + (end - start) + "ms");
+		return cModel_neorup;
+	}
+
+	public HashMap<String, weka.core.Instances> genDataSets(String path,
+			String excluPos) throws Exception {
+		HashMap<String, HashMap<String, String>> results = new HashMap<String, HashMap<String, String>>();
+		ArrayList<String> dataSet = new ArrayList<String>();
+		HashMap<String, String> kvmap = mapping.getKVMap();
+		HashMap<String, String> senseidmap = mapping.getSenseidMap();
+		HashMap<String, String> keyfilemap = mapping.getKeyFileMap();
+
+		int len = 6;
+		int max_len = 12;
+
+		FastVector fvNominalVal = new FastVector(kvmap.size());
+		for (String k : kvmap.keySet()) {
+			fvNominalVal.addElement(k);
+		}
+		// Declare two numeric attributes
+		Attribute prev_pos_2 = new Attribute("prev_pos_2", fvNominalVal);
+		Attribute prev_pos_1 = new Attribute("prev_pos_1", fvNominalVal);
+		Attribute next_pos_1 = new Attribute("next_pos_1", fvNominalVal);
+		Attribute next_pos_2 = new Attribute("next_pos_2", fvNominalVal);
+		boolean usable = false;
+
+		for (Corpus corpus : corpuses) {
+			ArrayList<Lexelt> lexeltList = corpus.getLexelts();
+
+			HashMap<String, weka.core.Instances> trainingSetsMap = new HashMap<String, weka.core.Instances>();
+			for (Lexelt lexelt : lexeltList) {
+				String keyWord = lexelt.getItem();
+				ArrayList<Instance> instanceList = lexelt.getInstances();
+				HashMap<String, String> match = new HashMap<String, String>();
+				ArrayList<weka.core.Instances> trainingSets = new ArrayList<weka.core.Instances>();
+
+				BufferedWriter bw = new BufferedWriter(new FileWriter(path
+						+ keyWord + ".arff"));
+				// BufferedWriter bw_res = new BufferedWriter(new
+				// FileWriter(path
+				// + keyWord + ".txt"));
+
+				// Write header
+				bw.write("@relation " + keyWord.hashCode());
+				bw.newLine();
+				bw.newLine();
+
+				for (int i = 1; i <= 4; i++) {
+					bw.write("@attribute " + i + " {");
+					int count = 0;
+					for (String s : mapping.getKVMap().keySet()) {
+
+						// String bin_str = mapping.getKVMap().get(s);
+						// String bin_str = mapping.getValue(s);
+						// bw.write(bin_str);
+						bw.write(s);
+						// bw.write("\""
+						// + extendTo(bin_str, len)
+						// + "\"");
+						// System.out.println("bin_str0: "
+						// + extendTo(bin_str, len));
+						if (count != mapping.getKVMap().size() - 1) {
+							bw.write(",");
+						} else {
+							bw.write("}");
+						}
+						count++;
+
+					}
+					bw.newLine();
+				}
+
+				// Declare the class attribute along with its values
+				FastVector fvClassVal = new FastVector();
+
+				for (int i = 0; i < instanceList.size(); i++) {
+					Instance instance = instanceList.get(i);
+					Answer ans = instanceList.get(i).getAnswer();
+					String senseID;
+					if (ans.getSenseid() == "") {
+						senseID = keyfilemap.get(ans.getInstance());
+					} else {
+						senseID = ans.getSenseid();
+					}
+					String value = mapping.getValue(senseID);
+					if (!fvClassVal.contains(senseID)) {
+						fvClassVal.addElement(senseID);
+					}
+				}
+				Attribute classAttribute = new Attribute("senseid", fvClassVal);
+				FastVector fvWekaAttributes = new FastVector(5);
+				fvWekaAttributes.addElement(prev_pos_2);
+				fvWekaAttributes.addElement(prev_pos_1);
+				fvWekaAttributes.addElement(next_pos_1);
+				fvWekaAttributes.addElement(next_pos_2);
+				fvWekaAttributes.addElement(classAttribute);
+
+				// Create an empty training set
+				weka.core.Instances isTrainingSet = new weka.core.Instances(
+						"Relation", fvWekaAttributes, instanceList.size());
+
+				// Set class index
+				isTrainingSet.setClassIndex(4);
+
+				// 5th line
+				ArrayList<String> classesAttr = new ArrayList<String>();
+
+				String fifthline = "@attribute " + 5 + " {";
+				ArrayList<String> dataLine = new ArrayList<String>();
+				for (int i = 0; i < instanceList.size(); i++) {
+					Instance instance = instanceList.get(i);
+					Answer ans = instanceList.get(i).getAnswer();
+					// match.put(ans.getInstance(), ans.getSenseid());
+					// System.out.println("Senseid: " + ans.getSenseid());
+					String senseID = ans.getSenseid();
+					// System.out.println("senseID: " + senseID);
+					String value;
+					if (senseID == "") {
+						value = keyfilemap.get(ans.getInstance());
+					} else {
+						value = mapping.getValue(senseID);
+					}
+					if (!fifthline.contains(value)) {
+						fifthline += value;
+						if (i < instanceList.size() - 1) {
+							if (!fifthline.endsWith(",")) {
+								fifthline += ",";
+							}
+						}
+					}
+
+					// Create the instance
+					weka.core.Instance iExample = new weka.core.Instance(5);
+					WordTag[] vec_w = new WordTag[4];
+					String[] pos_str = new String[4];
+					for (WordTag wordTag : instance.getPOSTTagging()
+							.getPOSTagging().keySet()) {
+						String dataStr = "";
+						if (Integer.parseInt(wordTag.getID()) > 2
+								&& Integer.parseInt(wordTag.getID()) > 1
+								&& Integer.parseInt(wordTag.getID()) + 1 < instance
+										.getPOSTTagging().getPOSTagging()
+										.size()
+								&& Integer.parseInt(wordTag.getID()) + 2 < instance
+										.getPOSTTagging().getPOSTagging()
+										.size()) {
+
+							usable = true;
+							vec_w[0] = instance
+									.getPOSTTagging()
+									.getWordTagByID(
+											Integer.parseInt(wordTag.getID()) - 2);
+							vec_w[1] = instance
+									.getPOSTTagging()
+									.getWordTagByID(
+											Integer.parseInt(wordTag.getID()) - 1);
+							vec_w[2] = instance
+									.getPOSTTagging()
+									.getWordTagByID(
+											Integer.parseInt(wordTag.getID()) + 1);
+							vec_w[3] = instance
+									.getPOSTTagging()
+									.getWordTagByID(
+											Integer.parseInt(wordTag.getID()) + 2);
+							if (excluPos != "") {
+								if (vec_w[0].getPOS() == excluPos) {
+									vec_w[0] = instance.getPOSTTagging()
+											.getWordTagByID(
+													Integer.parseInt(wordTag
+															.getID()) - 3);
+								}
+								if (vec_w[1].getPOS() == excluPos) {
+									vec_w[0] = instance.getPOSTTagging()
+											.getWordTagByID(
+													Integer.parseInt(wordTag
+															.getID()) - 3);
+									vec_w[1] = instance.getPOSTTagging()
+											.getWordTagByID(
+													Integer.parseInt(wordTag
+															.getID()) - 2);
+								}
+
+								if (vec_w[2].getPOS() == excluPos) {
+									vec_w[2] = instance.getPOSTTagging()
+											.getWordTagByID(
+													Integer.parseInt(wordTag
+															.getID()) + 2);
+									vec_w[3] = instance.getPOSTTagging()
+											.getWordTagByID(
+													Integer.parseInt(wordTag
+															.getID()) + 3);
+								}
+								if (vec_w[3].getPOS() == excluPos) {
+									vec_w[3] = instance.getPOSTTagging()
+											.getWordTagByID(
+													Integer.parseInt(wordTag
+															.getID()) + 3);
+								}
+							}
+
+							// extend binary str
+
+							int c = 0;
+							for (WordTag vw : vec_w) {
+								// String str_bin =
+								// mapping.getValue(vw.getPOS());
+								String str_bin = vw.getPOS();
+								int str_len = (str_bin.length() + 1) / 2;
+								pos_str[c] = str_bin;
+								if (str_len < len) {
+									// pos_str[c] = extendTo(str_bin, len);
+									pos_str[c] = str_bin;
+									// System.out.println("pos_str[" + c +
+									// "] : " + pos_str[c]);
+								}
+								c++;
+							}
+
+							dataStr += pos_str[0] + "," + pos_str[1] + ","
+									+ pos_str[2] + "," + pos_str[3] + ",";
+							if (ans.getSenseid() != "") {
+								// String str_bin =
+								// mapping.getValue(ans.getSenseid());
+								dataStr += mapping.getValue(ans.getSenseid());
+							} else {
+								// dataStr += "?";
+								dataStr += keyfilemap.get(ans.getInstance());
+							}
+							// System.out.println("DataStr: " + dataStr);
+							dataLine.add(dataStr);
+						}
+					}
+					if (usable) {
+						// Create the instance
+						for (int m = 0; m < pos_str.length; m++) {
+							if (pos_str[m] == null) {
+								// System.out.println("NULL!" + m);
+								break;
+							}
+							iExample.setValue(
+									(Attribute) fvWekaAttributes.elementAt(m),
+									pos_str[m]);
+						}
+						// System.out.println("senseID: " + iExample.value(3));
+
+						// if (ans.getInstance() == null) {
+						// System.out.println("getInstance is null");
+						// }
+						// if (iExample == null) {
+						// System.out.println("iExample is null");
+						// }
+						// if (keyfilemap.get(ans.getInstance()) == null) {
+						// // System.out
+						// //
+						// .println("keyfilemap.get(ans.getInstance()) is null");
+						// // System.out.println(ans.getInstance());
+						// }
+						if (keyfilemap.get(ans.getInstance()) != null) {
+							// System.out.println(ans.getInstance() + " " +
+							// fvWekaAttributes
+							// .elementAt(pos_str.length));
+							iExample.setValue((Attribute) fvWekaAttributes
+									.elementAt(pos_str.length), keyfilemap
+									.get(ans.getInstance()));
+							// add the instance
+							isTrainingSet.add(iExample);
+						}
+						usable = false;
+					}
+				}
+
+				// every lexelt has an training set
+				trainingSets.add(isTrainingSet);
+				trainingSetsMap.put(keyWord, isTrainingSet);
+
+				// bw_res.close();
+
+				fifthline += "}";
+				if (fifthline.endsWith(",}")) {
+					fifthline = fifthline.replace(",}", "}");
+				}
+
+				bw.write(fifthline);
+				bw.newLine();
+				bw.newLine();
+				bw.write("@data");
+				bw.newLine();
+				for (String d : dataLine) {
+					bw.write(d);
+					bw.newLine();
+				}
+				bw.flush();
+				bw.close();
+			}
+			return trainingSetsMap;
+		}
+		return null;
+	}
+
 	@Override
 	public String toString() {
 		String str = "Corpus: ";
@@ -375,33 +639,99 @@ public class ChineseClassifier {
 
 	}
 
-	public static void doGenerate(String xmlFile, String outPath,
-			boolean isTrain) throws IOException {
+	public static HashMap<String, weka.core.Instances> doGenerate(
+			String xmlFile, String outPath, String excluPos, boolean isTrain)
+			throws Exception {
 		ChineseClassifier cc = new ChineseClassifier(xmlFile,
 				"pos\\SpecificationforPOSTags.txt");
 		System.out.println("Start parsing...");
 		cc.parse();
 		System.out.println("Parse done!");
 		System.out.println("Generating data set...");
-		ArrayList<String> myDataSet;
-		// if (isTrain) {
-		cc.geterateDataSet(outPath);
-		// } else {
-		// myDataSet = cc.geterateTestSet();
-		// }
+		// ArrayList<String> myDataSet;
+		// ArrayList<weka.core.Instances> trainingSets = new
+		// ArrayList<weka.core.Instances>();
+		// ArrayList<weka.core.Instances> testingSets = new
+		// ArrayList<weka.core.Instances>();
+		HashMap<String, weka.core.Instances> dataSets;
+		if (isTrain) {
+
+			dataSets = cc.genDataSets(outPath, excluPos);
+		} else {
+			dataSets = cc.genDataSets(outPath, excluPos);
+		}
 		System.out.println("Data set generated!");
 		// System.out.println(cc.toString());
+		return dataSets;
 	}
 
 	/**
 	 * @param args
 	 *            the command line arguments
-	 * @throws IOException
+	 * @throws Exception
 	 */
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws Exception {
 		// TODO code application logic here
-		doGenerate("pos\\Chinese_train_pos.xml", "pos\\arff\\training\\", true);
-		doGenerate("pos\\Chinese_test_pos.xml", "pos\\arff\\testing\\", false);
-	}
+		HashMap<String, weka.core.Instances> trainingSetsMap;
+		HashMap<String, weka.core.Instances> testingSetsMap;
+		String excluPos = "";
+		trainingSetsMap = doGenerate("pos\\Chinese_train_pos.xml",
+				"pos\\arff\\training\\", excluPos, true);
+		System.out.println("===============================================");
+		testingSetsMap = doGenerate("pos\\Chinese_test_pos.xml",
+				"pos\\arff\\testing\\", excluPos, false);
+		System.out.println("Training sets size: " + trainingSetsMap.size());
+		System.out.println("Testing sets size: " + testingSetsMap.size());
 
+		long totalTime = 0;
+
+		// for (String item : trainingSetsMap.keySet()) {
+		// weka.core.Instances trainingInstances = trainingSetsMap.get(item);
+		// weka.core.Instances testingInstances = testingSetsMap.get(item);
+		// BufferedWriter bw = new BufferedWriter(new FileWriter(new File(
+		// "pos\\arff\\results\\" + item + ".txt")));
+		// long start = System.currentTimeMillis();
+		// String[] opt = {"-L", "0.3", "-M", "0.2", "-N", "200", "-V", "20",
+		// "-S", "7", "-E", "20", "-H", "a"};
+		// String summary = test(testingInstances, train(trainingInstances,
+		// opt));
+		// long end = System.currentTimeMillis();
+		// totalTime += end - start;
+		// bw.write(summary);
+		// bw.newLine();
+		// bw.flush();
+		// bw.close();
+		// }
+		BufferedWriter bw = new BufferedWriter(new FileWriter(new File(
+				"pos\\arff\\results\\result.txt")));
+		// write csv header
+		String header = "item Momentum_0.0 Momentum_0.2";
+		bw.write(header);
+		bw.newLine();
+		for (String item : trainingSetsMap.keySet()) {
+			weka.core.Instances trainingInstances = trainingSetsMap.get(item);
+			weka.core.Instances testingInstances = testingSetsMap.get(item);
+			String[] optChange = { "0.0", "0.2" };
+			long start = System.currentTimeMillis();
+			for (int i = 0; i < optChange.length; i++) {
+
+				String[] opt = { "-L", "0.3", "-M", optChange[i], "-N", "200",
+						"-V", "10", "-S", "3", "-E", "20", "-H", "a" };
+				String rate = test(testingInstances,
+						train(trainingInstances, opt));
+				bw.write(rate);
+				if (i != optChange.length - 1) {
+					bw.write(" ");
+				}
+			}
+			bw.newLine();
+			long end = System.currentTimeMillis();
+			totalTime += end - start;
+		}
+		bw.flush();
+		bw.close();
+
+		System.out.println("Training and testing done (" + totalTime + "ms)");
+//		System.out.println("Correctly Classified Instances         683               66.6992 %".split("\\s+")[4]);
+	}
 }
