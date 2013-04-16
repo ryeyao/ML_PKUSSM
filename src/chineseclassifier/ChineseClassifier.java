@@ -311,7 +311,7 @@ public class ChineseClassifier {
 		// String strSummary = eTest.toMatrixString();
 		long end = System.currentTimeMillis();
 		System.out.println("Testing done. " + (end - start) + "ms");
-//		return strSummary.split("\\s+")[4];
+		// return strSummary.split("\\s+")[4];
 		return strSummary.split("\n")[1].split("\\s+")[4];
 	}
 
@@ -665,12 +665,94 @@ public class ChineseClassifier {
 		return dataSets;
 	}
 
-	/**
-	 * @param args
-	 *            the command line arguments
-	 * @throws Exception
-	 */
-	public static void main(String[] args) throws Exception {
+	public static void tempWork() throws Exception {
+		// TODO code application logic here
+		HashMap<String, weka.core.Instances> trainingSetsMap;
+		HashMap<String, weka.core.Instances> testingSetsMap;
+		String excluPos = "w";
+		trainingSetsMap = doGenerate("pos\\Chinese_train_pos.xml",
+				"pos\\arff\\training\\", excluPos, true);
+		System.out.println("===============================================");
+		testingSetsMap = doGenerate("pos\\Chinese_test_pos.xml",
+				"pos\\arff\\testing\\", excluPos, false);
+		System.out.println("Training sets size: " + trainingSetsMap.size());
+		System.out.println("Testing sets size: " + testingSetsMap.size());
+		long totalTime = 0;
+
+		BufferedWriter bw = new BufferedWriter(new FileWriter(new File(
+				"pos\\arff\\results\\result_without_comma_500_L0.5.csv")));
+		// write csv header
+		String header = "item,Momentum_0.0,Momentum_0.2";
+		double micro_ave = 0.0;
+		double micro_ave2 = 0.0;
+		double macro_ave = 0.0;
+		double macro_ave2 = 0.0;
+		int micro_sum = 0;
+		int micro_sum2 = 0;
+		double macro_sum = 0.0;
+		double macro_sum2 = 0.0;
+		double macro_sum_all = 0;
+		double macro_sum2_all = 0;
+		bw.write(header);
+		bw.newLine();
+		for (String item : trainingSetsMap.keySet()) {
+
+			weka.core.Instances trainingInstances = trainingSetsMap.get(item);
+			// Percentage split
+			int trainSize = (int) Math
+					.round(trainingInstances.numInstances() * 0.8);
+			int testSize = trainingInstances.numInstances() - trainSize;
+			weka.core.Instances train = new weka.core.Instances(
+					trainingInstances, 0, trainSize);
+			weka.core.Instances test = new weka.core.Instances(
+					trainingInstances, trainSize, testSize);
+
+			weka.core.Instances testingInstances = testingSetsMap.get(item);
+			String[] optChange = { "0.0", "0.5" };
+			long start = System.currentTimeMillis();
+			bw.write(item + ",");
+			for (int i = 0; i < optChange.length; i++) {
+
+				String[] opt = { "-L", "0.5", "-M", optChange[i], "-N", "500",
+						"-V", "0", "-S", "3", "-E", "20", "-H", "a" };
+				String rate = test(testingInstances,
+						train(trainingInstances, opt));
+				if (i == 0) {
+					macro_sum += Double.parseDouble(rate) / 100;
+					macro_sum_all += (Double.parseDouble(rate) / 100)
+							* trainingInstances.numInstances();
+					micro_sum += trainingInstances.numInstances();
+				} else {
+					macro_sum2 += Double.parseDouble(rate) / 100;
+					micro_sum2 += trainingInstances.numInstances();
+					macro_sum2_all += (Double.parseDouble(rate) / 100)
+							* trainingInstances.numInstances();
+				}
+				bw.write(String.valueOf(Double.parseDouble(rate) / 100));
+				if (i != optChange.length - 1) {
+					bw.write(",");
+				}
+			}
+			bw.newLine();
+			long end = System.currentTimeMillis();
+			totalTime += end - start;
+		}
+		macro_ave = macro_sum / trainingSetsMap.size();
+		macro_ave2 = macro_sum2 / trainingSetsMap.size();
+		micro_ave = macro_sum_all / micro_sum;
+		micro_ave2 = macro_sum2_all / micro_sum2;
+		bw.write("Micro_ave," + micro_ave + "," + micro_ave2);
+		bw.newLine();
+		bw.write("Macro_ave," + macro_ave + "," + macro_ave2);
+		bw.flush();
+		bw.close();
+
+		System.out.println("Training and testing done (" + totalTime + "ms)");
+		System.out.println("Micro_ave," + micro_ave + "," + micro_ave2);
+		System.out.println("Macro_ave," + macro_ave + "," + macro_ave2);
+	}
+
+	public static void tempWork2() throws Exception {
 		// TODO code application logic here
 		HashMap<String, weka.core.Instances> trainingSetsMap;
 		HashMap<String, weka.core.Instances> testingSetsMap;
@@ -682,56 +764,90 @@ public class ChineseClassifier {
 				"pos\\arff\\testing\\", excluPos, false);
 		System.out.println("Training sets size: " + trainingSetsMap.size());
 		System.out.println("Testing sets size: " + testingSetsMap.size());
-
 		long totalTime = 0;
 
-		// for (String item : trainingSetsMap.keySet()) {
-		// weka.core.Instances trainingInstances = trainingSetsMap.get(item);
-		// weka.core.Instances testingInstances = testingSetsMap.get(item);
-		// BufferedWriter bw = new BufferedWriter(new FileWriter(new File(
-		// "pos\\arff\\results\\" + item + ".txt")));
-		// long start = System.currentTimeMillis();
-		// String[] opt = {"-L", "0.3", "-M", "0.2", "-N", "200", "-V", "20",
-		// "-S", "7", "-E", "20", "-H", "a"};
-		// String summary = test(testingInstances, train(trainingInstances,
-		// opt));
-		// long end = System.currentTimeMillis();
-		// totalTime += end - start;
-		// bw.write(summary);
-		// bw.newLine();
-		// bw.flush();
-		// bw.close();
-		// }
 		BufferedWriter bw = new BufferedWriter(new FileWriter(new File(
-				"pos\\arff\\results\\result.txt")));
+				"pos\\arff\\results\\result_with_comma_500_L0.5.csv")));
 		// write csv header
-		String header = "item Momentum_0.0 Momentum_0.2";
+		String header = "item,Momentum_0.0,Momentum_0.2";
+		double micro_ave = 0.0;
+		double micro_ave2 = 0.0;
+		double macro_ave = 0.0;
+		double macro_ave2 = 0.0;
+		int micro_sum = 0;
+		int micro_sum2 = 0;
+		double macro_sum = 0.0;
+		double macro_sum2 = 0.0;
+		double macro_sum_all = 0;
+		double macro_sum2_all = 0;
 		bw.write(header);
 		bw.newLine();
 		for (String item : trainingSetsMap.keySet()) {
+
 			weka.core.Instances trainingInstances = trainingSetsMap.get(item);
+			// Percentage split
+			int trainSize = (int) Math
+					.round(trainingInstances.numInstances() * 0.8);
+			int testSize = trainingInstances.numInstances() - trainSize;
+			weka.core.Instances train = new weka.core.Instances(
+					trainingInstances, 0, trainSize);
+			weka.core.Instances test = new weka.core.Instances(
+					trainingInstances, trainSize, testSize);
+
 			weka.core.Instances testingInstances = testingSetsMap.get(item);
-			String[] optChange = { "0.0", "0.2" };
+			String[] optChange = { "0.0", "0.5" };
 			long start = System.currentTimeMillis();
+			bw.write(item + ",");
 			for (int i = 0; i < optChange.length; i++) {
 
-				String[] opt = { "-L", "0.3", "-M", optChange[i], "-N", "200",
-						"-V", "10", "-S", "3", "-E", "20", "-H", "a" };
+				String[] opt = { "-L", "0.5", "-M", optChange[i], "-N", "500",
+						"-V", "0", "-S", "3", "-E", "20", "-H", "a" };
 				String rate = test(testingInstances,
 						train(trainingInstances, opt));
-				bw.write(rate);
+				if (i == 0) {
+					macro_sum += Double.parseDouble(rate) / 100;
+					macro_sum_all += (Double.parseDouble(rate) / 100)
+							* trainingInstances.numInstances();
+					micro_sum += trainingInstances.numInstances();
+				} else {
+					macro_sum2 += Double.parseDouble(rate) / 100;
+					micro_sum2 += trainingInstances.numInstances();
+					macro_sum2_all += (Double.parseDouble(rate) / 100)
+							* trainingInstances.numInstances();
+				}
+				bw.write(String.valueOf(Double.parseDouble(rate) / 100));
 				if (i != optChange.length - 1) {
-					bw.write(" ");
+					bw.write(",");
 				}
 			}
 			bw.newLine();
 			long end = System.currentTimeMillis();
 			totalTime += end - start;
 		}
+		macro_ave = macro_sum / trainingSetsMap.size();
+		macro_ave2 = macro_sum2 / trainingSetsMap.size();
+		micro_ave = macro_sum_all / micro_sum;
+		micro_ave2 = macro_sum2_all / micro_sum2;
+		bw.write("Micro_ave," + micro_ave + "," + micro_ave2);
+		bw.newLine();
+		bw.write("Macro_ave," + macro_ave + "," + macro_ave2);
 		bw.flush();
 		bw.close();
 
 		System.out.println("Training and testing done (" + totalTime + "ms)");
-//		System.out.println("Correctly Classified Instances         683               66.6992 %".split("\\s+")[4]);
+		System.out.println("Micro_ave," + micro_ave + "," + micro_ave2);
+		System.out.println("Macro_ave," + macro_ave + "," + macro_ave2);
+	}
+
+	/**
+	 * @param args
+	 *            the command line arguments
+	 * @throws Exception
+	 */
+	public static void main(String[] args) throws Exception {
+
+		tempWork();
+		tempWork2();
+		// System.out.println("Correctly Classified Instances         683               66.6992 %".split("\\s+")[4]);
 	}
 }
