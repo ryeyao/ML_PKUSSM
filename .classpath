@@ -4,5 +4,11 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="E:/Program Files/Weka-3-6/weka.jar"/>
 	<classpathentry kind="lib" path="E:/Program Files/Weka-3-6/remoteExperimentServer.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Rye/Desktop/命名实体/ltp-service-1.0/ltp-service/JAVA/tools package/commons-codec-1.4.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Rye/Desktop/命名实体/ltp-service-1.0/ltp-service/JAVA/tools package/commons-logging.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Rye/Desktop/命名实体/ltp-service-1.0/ltp-service/JAVA/tools package/httpclient-4.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Rye/Desktop/命名实体/ltp-service-1.0/ltp-service/JAVA/tools package/httpcore-4.0.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Rye/Desktop/命名实体/ltp-service-1.0/ltp-service/JAVA/tools package/jdom.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Rye/Desktop/命名实体/IKAnalyzer2012_u6/IKAnalyzer2012_u6.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
