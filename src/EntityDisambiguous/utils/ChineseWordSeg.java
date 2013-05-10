@@ -84,4 +84,19 @@ public class ChineseWordSeg {
 		}
 		
 	}
+	
+	public static String doSegFromString (String strToSeg) throws IOException {
+		String strSeged = "";
+		StringReader line_reader = new StringReader(strToSeg);
+		IKSegmenter iks = new IKSegmenter(line_reader, true);
+		Lexeme lexeme = null;
+		
+		while ((lexeme = iks.next()) != null) {
+			strSeged += lexeme.getLexemeText();
+			strSeged += " ";
+		}
+		strSeged += "{]";
+		strSeged = strSeged.replace(" {]", "");
+		return strSeged;
+	}
 }

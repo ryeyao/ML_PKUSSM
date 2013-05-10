@@ -9,13 +9,12 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.StringBufferInputStream;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.xml.parsers.ParserConfigurationException;
 
 import weka.classifiers.Evaluation;
 import weka.clusterers.ClusterEvaluation;
@@ -26,7 +25,9 @@ import weka.clusterers.XMeans;
 import weka.core.Instances;
 import weka.core.converters.ArffLoader;
 
+import EntityDisambiguous.utils.AnsFileFilter;
 import EntityDisambiguous.utils.ArffFileFilter;
+import EntityDisambiguous.utils.ArffWriter;
 import EntityDisambiguous.utils.ChineseWordSeg;
 import EntityDisambiguous.utils.TextToArff;
 
@@ -62,8 +63,31 @@ public class Main {
 		}
 	}
 	
-	public void createCenterFromAns (String fileFrom, String fileTo) throws IOException {
-		BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(new File(fileFrom)), this.charset));
+	public static void createArffFromKBXML (String dirFrom, String dirTo) throws ParserConfigurationException, IOException {
+		
+		// Parse xml
+		Parser parser = new Parser("utf-8");
+		HashMap<String, EntityList> kbs = parser.parseKB(dirFrom);
+		for (String fn: kbs.keySet()) {
+			ArffWriter aff = new ArffWriter(dirTo + "/" + fn);
+			aff.setRelationName("KB_" + fn);
+			aff.setAttribute("classid", ArffWriter.DataType.string);
+			aff.setAttribute("content", ArffWriter.DataType.string);
+			
+			for (String id: kbs.get(fn).keySet()) {
+				ArrayList<String> data = new ArrayList<String>();
+				data.add(id);
+				String classid = kbs.get(fn).get(id);
+				data.add(ChineseWordSeg.doSegFromString(classid));
+				aff.setDataInstance(data);
+			}
+			aff.writeArff();
+			
+		}
+	}
+	public static void createCenterFileFromAns (String fileFrom, String fileTo) throws IOException, ParserConfigurationException {
+		
+		BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(new File(fileFrom)), charset));
 		
 		String line;
 		String res_str = "";
@@ -72,15 +96,41 @@ public class Main {
 			res_str += line;
 			lines.put(line.split(" ")[0], line.split(" ")[1]);
 		}
+		// Parse xml
+		Parser parser = new Parser("utf-8");
+		HashMap<String, EntityList> anses = parser.parseKB("ner/KB");
 		
+		ArffWriter aff = new ArffWriter(fileTo);
+		aff.setRelationName("Center_File_" + fileFrom);
+		aff.setAttribute("content", ArffWriter.DataType.string);
+		for (String fn: lines.keySet()) {
+			ArrayList<String> data = new ArrayList<String>();
+			String content;
+			if (lines.get(fn) == "other" || lines.get(fn).contains("Out_")) {
+				content = lines.get(fn);
+			} else {
+				content = (String)anses.get(fileFrom.replace(".ans", ".xml")).get(lines.get(fn)); 
+			}
+			data.add(lines.get(fn));
+			aff.setDataInstance(data);
+		}
+		aff.writeArff();
 	}
 
 	public static void main(String[] args) throws Exception {
 
 		String rawTextDir = "ner/train";
 		String datasetDir = "ner/train_seg";
-//		doWordSegmentation(rawTextDir, datasetDir);
-//		doWriteArffFromDir(datasetDir, datasetDir);
+		
+		doWordSegmentation(rawTextDir, datasetDir);
+		doWriteArffFromDir(datasetDir, datasetDir);
+		createArffFromKBXML("ner/KB", "ner/KB");
+		File ansdir = new File("ner/train_seg");
+		FilenameFilter ansfilter = new AnsFileFilter();
+		for (File file: ansdir.listFiles(ansfilter)) {
+			createCenterFileFromAns(file.getCanonicalPath(), file.getCanonicalPath() + ".arff");
+		}
+		
 		HashMap<String, Instances> datasets = new HashMap<String, Instances>();
 		
 		FilenameFilter filter = new ArffFileFilter();

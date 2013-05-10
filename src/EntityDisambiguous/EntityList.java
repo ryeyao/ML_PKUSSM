@@ -1,8 +1,9 @@
 package EntityDisambiguous;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
-public class EntityList extends ArrayList{
+public class EntityList extends HashMap<String, String> {
 
 	private String name;
 	
@@ -10,16 +11,12 @@ public class EntityList extends ArrayList{
 	public String toString () {
 		String ret = name + ": ";
 		ret += "\n";
-		for (int i = 0; i < this.size(); i++) {
+		for (String id: this.keySet()) {
 			String line = "    ";
-			String id = String.valueOf(i);
-			while (id.length() < 2) {
-				id = "0" + id;
-			}
 			line += "id: " + id;
 			line += "\n";
 			line += "    ";
-			line += "text: " + this.get(i);
+			line += "text: " + this.get(id);
 			line += "\n";
 			ret += "\n";
 		}

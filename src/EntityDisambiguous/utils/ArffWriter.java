@@ -17,7 +17,7 @@ import java.util.Map;
 
 public class ArffWriter {
 
-	static enum DataType {
+	public static enum DataType {
 		numeric,
 		string,
 		date,
@@ -97,9 +97,13 @@ public class ArffWriter {
 	}
 
 	public void writeArff () throws IOException {
+		String fileName = this.fileName;
+		if (!this.fileName.endsWith(".arff")) {
+			fileName = this.fileName + ".arff";
+		}
 		BufferedWriter bw = new BufferedWriter(
 				new OutputStreamWriter (
-						new FileOutputStream(new File(this.fileName)), 
+						new FileOutputStream(new File(fileName)), 
 								Charset.forName(this.charset)
 						)
 				);

@@ -58,12 +58,11 @@ public class TextToArff {
 		for (int i = 0; i < files.length; i++) {
 			if (files[i].endsWith(".txt")) {
 				try {
-					double[] newInst = new double[2];
-					newInst[0] = (double) data.attribute(0).addStringValue(
-							files[i].substring(0, files[i].lastIndexOf(".")));
+					double[] newInst = new double[1];
+//					newInst[0] = (double) data.attribute(0).addStringValue(
+//							files[i].substring(0, files[i].lastIndexOf(".")));
 					File txt = new File(dirFrom + File.separator + files[i]);
-					InputStreamReader is;
-					is = new InputStreamReader(new FileInputStream(txt), this.charset);
+					InputStreamReader is = new InputStreamReader(new FileInputStream(txt), this.charset);
 					BufferedReader br = new BufferedReader(is);
 					
 					String line;
@@ -72,7 +71,7 @@ public class TextToArff {
 						txtStr.append(line);
 					}
 					
-					newInst[1] = (double) data.attribute(1).addStringValue(
+					newInst[0] = (double) data.attribute(0).addStringValue(
 							txtStr.toString());
 					data.add(new Instance(1.0, newInst));
 					
